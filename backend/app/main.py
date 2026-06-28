@@ -42,6 +42,11 @@ async def start_run(file: UploadFile = File(...), author_id: str = Form(...)) ->
     return orchestrator.start(run["id"])
 
 
+@app.get("/runs")
+def list_runs() -> list[dict]:
+    return store.list_runs()
+
+
 @app.get("/runs/{run_id}")
 def get_run(run_id: str) -> dict:
     run = store.get_run(run_id)

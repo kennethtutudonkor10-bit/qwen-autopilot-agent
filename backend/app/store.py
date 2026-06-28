@@ -63,6 +63,17 @@ def create_run(author_id: str, manuscript_uri: str) -> dict[str, Any]:
     return copy.deepcopy(row)
 
 
+def list_runs(limit: int = 50) -> list[dict[str, Any]]:
+    if _use_supabase():
+        res = (
+            _supabase().table("agent_runs").select("*")
+            .order("created_at", desc=True).limit(limit).execute()
+        )
+        return res.data or []
+    runs = sorted(_MEM.values(), key=lambda r: r["created_at"], reverse=True)
+    return [copy.deepcopy(r) for r in runs[:limit]]
+
+
 def get_run(run_id: str) -> dict[str, Any] | None:
     if _use_supabase():
         res = _supabase().table("agent_runs").select("*").eq("id", run_id).execute()

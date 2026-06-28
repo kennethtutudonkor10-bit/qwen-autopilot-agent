@@ -30,3 +30,12 @@ drop trigger if exists agent_runs_updated_at on agent_runs;
 create trigger agent_runs_updated_at
   before update on agent_runs
   for each row execute function set_agent_runs_updated_at();
+
+-- RLS: admins can read runs from the dashboard; the Python backend uses the
+-- service-role key, which bypasses RLS for writes.
+alter table agent_runs enable row level security;
+
+drop policy if exists "Admins read agent runs" on agent_runs;
+create policy "Admins read agent runs"
+  on agent_runs for select
+  using (exists (select 1 from public.users u where u.id = auth.uid() and u.role = 'admin'));
