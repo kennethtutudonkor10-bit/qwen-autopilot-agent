@@ -17,3 +17,6 @@ oss2>=2.18
 
 # Supabase (book/user data + agent run-state)
 supabase>=2.4
+
+# Manuscript text extraction
+pypdf>=4.0

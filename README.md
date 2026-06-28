@@ -35,12 +35,24 @@ docs/      architecture + demo script
 deploy/    Serverless Devs config for Function Compute
 ```
 
-## Local development
+## Quick test (only needs a Qwen key)
+
+Run the pipeline against a sample manuscript — no OSS or Supabase required:
 
 ```bash
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
+export DASHSCOPE_API_KEY=sk-...        # from Alibaba Cloud Model Studio
+python scripts/run_local.py samples/sample_manuscript.txt
+```
+
+It ingests the manuscript, drafts a full store listing, and runs quality checks —
+printing each step's JSON.
+
+## Full local server
+
+```bash
 cp .env.example .env          # fill in DASHSCOPE_API_KEY, OSS_*, SUPABASE_*
 uvicorn app.main:app --reload --port 8000
 ```
