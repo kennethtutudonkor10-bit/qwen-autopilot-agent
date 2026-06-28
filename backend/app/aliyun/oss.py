@@ -9,12 +9,12 @@ Docs: https://www.alibabacloud.com/help/en/oss/developer-reference/python
 """
 from __future__ import annotations
 
-import oss2
-
 from ..config import get_settings
 
 
-def _bucket() -> oss2.Bucket:
+def _bucket():
+    import oss2  # imported lazily so non-OSS code paths / tests need no native deps
+
     s = get_settings()
     auth = oss2.Auth(s.oss_access_key_id, s.oss_access_key_secret)
     return oss2.Bucket(auth, s.oss_endpoint, s.oss_bucket)

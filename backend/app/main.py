@@ -39,8 +39,7 @@ async def start_run(file: UploadFile = File(...), author_id: str = Form(...)) ->
     key = f"manuscripts/{author_id}/{uuid.uuid4()}-{file.filename}"
     oss.upload_bytes(key, data, content_type=file.content_type)
     run = store.create_run(author_id=author_id, manuscript_uri=key)
-    result = orchestrator.run_until_checkpoint(run["id"])
-    return result
+    return orchestrator.start(run["id"])
 
 
 @app.get("/runs/{run_id}")
@@ -63,4 +62,4 @@ def resume_run(run_id: str, body: ResumeBody) -> dict:
         raise HTTPException(404, "run not found")
     if run["status"] != store.AWAITING_APPROVAL:
         raise HTTPException(409, "run is not awaiting approval")
-    return orchestrator.resume(run_id, body.approved_listing, body.decision)
+    return orchestrator.resume(run_id, body.decision, body.approved_listing)

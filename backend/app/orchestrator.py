@@ -1,84 +1,95 @@
-"""Orchestrator: a Qwen-Agent Assistant driving the publishing pipeline.
+"""Orchestrator: the durable, resumable publishing state machine.
 
-The Assistant runs a ReAct loop over the registered skills using a Qwen model on
-DashScope. The pipeline is a state machine (see docs/architecture.md): the agent
-advances INTAKE -> DRAFT -> QUALITY, then hands off to a human checkpoint. On
-resume it continues PUBLISH -> (human) -> NOTIFY -> DONE.
+The pipeline runs autonomously up to a human checkpoint, persists what the human
+must approve, and returns. A later ``resume`` call rehydrates the run from the
+store and continues — so checkpoints survive restarts and the Function Compute
+request lifecycle.
+
+    start(run)        intake -> draft -> quality -> [HITL #1: review_listing]
+    resume(approve)   publish -> [HITL #2: approve_notification]
+    resume(approve)   notify -> done
+
+The deterministic state machine owns sequencing (production-readiness); each step
+delegates the language work to Qwen via the registered skills / pipeline.
 """
 from __future__ import annotations
 
-from qwen_agent.agents import Assistant
-
-from . import store
+from . import pipeline, steps, store
 from .config import get_settings
-from .skills import ALL_SKILLS  # noqa: F401 — importing registers the tools
 
-SYSTEM = (
-    "You are the GHAMAZON Publishing Autopilot. Given a manuscript run, ingest the "
-    "file, draft a complete store listing, and run quality checks. Be precise and "
-    "never fabricate book content. When the pipeline reaches a human checkpoint, "
-    "stop and summarize what the human must approve. Resume only with approved data."
-)
+# Human-in-the-loop checkpoint identifiers
+CK_REVIEW_LISTING = "review_listing"
+CK_APPROVE_NOTIFICATION = "approve_notification"
 
 
-def _llm_cfg() -> dict:
-    s = get_settings()
-    return {
-        "model": s.model_reason,
-        "model_server": s.dashscope_base_url,
-        "api_key": s.dashscope_api_key,
-        "generate_cfg": {"temperature": 0.3},
-    }
+def start(run_id: str) -> dict:
+    """Run intake -> draft -> quality, then pause at the listing-review checkpoint."""
+    extracted = steps.do_ingest(run_id)
+    steps.do_draft(run_id, extracted)
+    steps.do_quality(run_id, extracted)
 
-
-def build_agent() -> Assistant:
-    function_list = [t.name for t in ALL_SKILLS]
-    return Assistant(llm=_llm_cfg(), system_message=SYSTEM, function_list=function_list)
-
-
-def run_until_checkpoint(run_id: str) -> dict:
-    """Advance a run from its current step until it needs human approval or finishes.
-
-    Returns the run row. When ``status == awaiting_approval`` the caller surfaces
-    ``pending_action`` to the admin dashboard.
-    """
-    agent = build_agent()
     run = store.get_run(run_id)
-    messages = [{
-        "role": "user",
-        "content": f"Process manuscript run {run_id} from step '{run['step']}'.",
-    }]
+    return store.update_run(
+        run_id,
+        status=store.AWAITING_APPROVAL,
+        step=store.QUALITY,
+        pending_action={
+            "checkpoint": CK_REVIEW_LISTING,
+            "listing": run.get("draft_listing"),
+            "flags": run.get("quality_flags"),
+        },
+    )
 
-    # qwen-agent streams responses; we take the final state.
-    for _ in agent.run(messages=messages):
-        pass
 
-    # Skills update the run as they execute. After INTAKE->DRAFT->QUALITY the
-    # pipeline pauses for review of the draft listing.
+def resume(run_id: str, decision: str, approved_listing: dict | None = None) -> dict:
+    """Continue a run after a human checkpoint. decision: 'approve' | 'reject'."""
     run = store.get_run(run_id)
-    if run["status"] == store.QUALITY:
-        store.update_run(
-            run_id,
-            status=store.AWAITING_APPROVAL,
-            pending_action={
-                "checkpoint": "review_listing",
-                "listing": run.get("draft_listing"),
-                "flags": run.get("quality_flags"),
-            },
-        )
-    return store.get_run(run_id)
+    if run is None:
+        raise ValueError(f"run {run_id} not found")
+    checkpoint = (run.get("pending_action") or {}).get("checkpoint")
 
-
-def resume(run_id: str, approved_listing: dict | None, decision: str) -> dict:
-    """Resume a run after a human checkpoint.
-
-    decision: 'approve' | 'reject'. On approve we continue the pipeline; the
-    second checkpoint (notify author) is handled the same way by the caller.
-    """
     if decision == "reject":
+        store.append_trace(run_id, store.REJECTED, {"checkpoint": checkpoint})
         return store.update_run(run_id, status=store.REJECTED, pending_action=None)
 
-    # TODO(day4-5): invoke publish_book with approved_listing, then pause again for
-    # the author-notification checkpoint, then send email/notification on approve.
-    store.update_run(run_id, pending_action=None)
-    return run_until_checkpoint(run_id)
+    if decision != "approve":
+        raise ValueError(f"unknown decision: {decision}")
+
+    if checkpoint == CK_REVIEW_LISTING:
+        return _resume_after_listing(run_id, run, approved_listing)
+    if checkpoint == CK_APPROVE_NOTIFICATION:
+        return _resume_after_notification(run_id, run)
+    raise ValueError(f"cannot resume from checkpoint: {checkpoint}")
+
+
+def _resume_after_listing(run_id: str, run: dict, approved_listing: dict | None) -> dict:
+    """HITL #1 approved: publish the book, then pause for notification approval."""
+    listing = approved_listing or run.get("draft_listing") or {}
+    steps.do_publish(run_id, listing)
+
+    email = pipeline.draft_author_email(listing)
+    store.append_trace(run_id, store.PUBLISH, {"title": listing.get("title")})
+    return store.update_run(
+        run_id,
+        status=store.AWAITING_APPROVAL,
+        step=store.NOTIFY,
+        pending_action={"checkpoint": CK_APPROVE_NOTIFICATION, "email": email},
+    )
+
+
+def _resume_after_notification(run_id: str, run: dict) -> dict:
+    """HITL #2 approved: send the author notification and finish."""
+    email = (run.get("pending_action") or {}).get("email") or {}
+    _send_author_notification(run, email)
+    store.append_trace(run_id, store.NOTIFY, {"subject": email.get("subject"), "sent": True})
+    return store.update_run(run_id, status=store.DONE, step=store.DONE, pending_action=None)
+
+
+def _send_author_notification(run: dict, email: dict) -> None:
+    """Send via the email MCP server + GHAMAZON notification.
+
+    TODO(day5): wire the MCP email server (app/mcp_config.json) and insert an
+    in-app notification row. For now the approved email is recorded in the trace.
+    """
+    _ = get_settings()  # placeholder for SMTP/MCP config lookup
+    return None

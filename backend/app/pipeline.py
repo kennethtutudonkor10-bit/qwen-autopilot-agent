@@ -88,3 +88,21 @@ def quality_checks(listing: dict[str, Any], excerpt: str) -> list[dict[str, Any]
     )
     result = qwen.complete_json(s.model_reason, system, user)
     return result.get("flags", [])
+
+
+# ── step 5: draft the author notification (for the 2nd human checkpoint) ──────
+def draft_author_email(listing: dict[str, Any]) -> dict[str, str]:
+    """Draft the 'your book is live' email an admin approves before it's sent."""
+    s = get_settings()
+    system = (
+        "You write warm, professional emails for GHAMAZON to its authors. "
+        "Return JSON only."
+    )
+    user = (
+        "An author's book has just been approved and published on GHAMAZON. "
+        "Return JSON with keys: subject (string), body (string, 80-130 words, "
+        "congratulatory, mentions the title, invites them to share their store "
+        "link, signed 'The GHAMAZON Team'). Use the listing below.\n\n"
+        f"LISTING:\n{listing}"
+    )
+    return qwen.complete_json(s.model_reason, system, user)
