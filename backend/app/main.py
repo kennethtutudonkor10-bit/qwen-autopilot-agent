@@ -1,0 +1,66 @@
+"""FastAPI surface for the Qwen Autopilot Agent.
+
+Endpoints:
+  POST /runs                 start a run from an uploaded manuscript
+  GET  /runs/{id}            poll run state + trace (for the dashboard)
+  POST /runs/{id}/resume     human checkpoint: approve/edit/reject
+  GET  /healthz
+"""
+from __future__ import annotations
+
+import uuid
+
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
+from . import orchestrator, store
+from .aliyun import oss
+from .config import get_settings
+
+settings = get_settings()
+app = FastAPI(title="Qwen Autopilot Agent", version="0.1.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[o.strip() for o in settings.cors_origins.split(",")],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.get("/healthz")
+def healthz() -> dict:
+    return {"status": "ok", "service": "qwen-autopilot-agent"}
+
+
+@app.post("/runs")
+async def start_run(file: UploadFile = File(...), author_id: str = Form(...)) -> dict:
+    data = await file.read()
+    key = f"manuscripts/{author_id}/{uuid.uuid4()}-{file.filename}"
+    oss.upload_bytes(key, data, content_type=file.content_type)
+    run = store.create_run(author_id=author_id, manuscript_uri=key)
+    result = orchestrator.run_until_checkpoint(run["id"])
+    return result
+
+
+@app.get("/runs/{run_id}")
+def get_run(run_id: str) -> dict:
+    run = store.get_run(run_id)
+    if not run:
+        raise HTTPException(404, "run not found")
+    return run
+
+
+class ResumeBody(BaseModel):
+    decision: str  # 'approve' | 'reject'
+    approved_listing: dict | None = None
+
+
+@app.post("/runs/{run_id}/resume")
+def resume_run(run_id: str, body: ResumeBody) -> dict:
+    run = store.get_run(run_id)
+    if not run:
+        raise HTTPException(404, "run not found")
+    if run["status"] != store.AWAITING_APPROVAL:
+        raise HTTPException(409, "run is not awaiting approval")
+    return orchestrator.resume(run_id, body.approved_listing, body.decision)

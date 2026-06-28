@@ -1,0 +1,14 @@
+{
+  "_comment": "MCP servers the agent can call. Wired into the Assistant on day 5 (PLAN.md). Email sends the author notification; github is optional for scaffolding companion repos.",
+  "mcpServers": {
+    "email": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-email"],
+      "env": {
+        "SMTP_HOST": "${SMTP_HOST}",
+        "SMTP_USER": "${SMTP_USER}",
+        "SMTP_PASS": "${SMTP_PASS}"
+      }
+    }
+  }
+}

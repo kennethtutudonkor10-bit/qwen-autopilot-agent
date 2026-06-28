@@ -1,0 +1,41 @@
+# Serverless Devs config — deploy the agent to Alibaba Cloud Function Compute.
+# Docs: https://docs.serverless-devs.com  |  https://www.alibabacloud.com/help/en/functioncompute
+#
+#   npm i -g @serverless-devs/s
+#   s deploy
+edition: 3.0.0
+name: qwen-autopilot-agent
+access: default
+
+vars:
+  region: ap-southeast-1   # Singapore
+
+resources:
+  agent:
+    component: fc3
+    props:
+      region: ${vars.region}
+      functionName: qwen-autopilot-agent
+      description: GHAMAZON publishing autopilot (Track 4)
+      runtime: custom-container
+      timeout: 300
+      memorySize: 1024
+      port: 9000
+      customContainerConfig:
+        # Build & push backend/Dockerfile to ACR, then reference it here:
+        image: registry.${vars.region}.cr.aliyuncs.com/ghamazon/qwen-autopilot-agent:latest
+      environmentVariables:
+        DASHSCOPE_API_KEY: ${env.DASHSCOPE_API_KEY}
+        DASHSCOPE_BASE_URL: https://dashscope-intl.aliyuncs.com/compatible-mode/v1
+        OSS_ACCESS_KEY_ID: ${env.OSS_ACCESS_KEY_ID}
+        OSS_ACCESS_KEY_SECRET: ${env.OSS_ACCESS_KEY_SECRET}
+        OSS_ENDPOINT: https://oss-ap-southeast-1-internal.aliyuncs.com
+        OSS_BUCKET: ghamazon-manuscripts
+        SUPABASE_URL: ${env.SUPABASE_URL}
+        SUPABASE_SERVICE_ROLE_KEY: ${env.SUPABASE_SERVICE_ROLE_KEY}
+      triggers:
+        - triggerName: http
+          triggerType: http
+          triggerConfig:
+            authType: anonymous
+            methods: [GET, POST]

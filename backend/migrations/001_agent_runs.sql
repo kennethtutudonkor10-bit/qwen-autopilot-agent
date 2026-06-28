@@ -1,0 +1,31 @@
+-- Durable agent run-state for the publishing autopilot.
+-- Apply against the GHAMAZON Supabase project.
+
+create table if not exists agent_runs (
+  id              uuid primary key default gen_random_uuid(),
+  book_id         uuid,                              -- references books(id) once published
+  status          text not null default 'intake',   -- pipeline state machine
+  step            text not null default 'intake',
+  manuscript_uri  text,                              -- OSS object key
+  draft_listing   jsonb,                             -- agent's proposed listing
+  quality_flags   jsonb,
+  pending_action  jsonb,                             -- what a human checkpoint is approving
+  trace           jsonb not null default '[]',       -- reasoning steps for the dashboard
+  created_at      timestamptz not null default now(),
+  updated_at      timestamptz not null default now()
+);
+
+create index if not exists agent_runs_status_idx on agent_runs (status);
+
+-- keep updated_at fresh
+create or replace function set_agent_runs_updated_at()
+returns trigger language plpgsql as $$
+begin
+  new.updated_at = now();
+  return new;
+end $$;
+
+drop trigger if exists agent_runs_updated_at on agent_runs;
+create trigger agent_runs_updated_at
+  before update on agent_runs
+  for each row execute function set_agent_runs_updated_at();

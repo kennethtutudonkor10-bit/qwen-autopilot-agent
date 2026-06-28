@@ -1,0 +1,19 @@
+# Qwen Autopilot Agent — backend dependencies
+fastapi>=0.110
+uvicorn[standard]>=0.29
+python-multipart>=0.0.9
+pydantic>=2.6
+pydantic-settings>=2.2
+
+# Qwen-Agent framework (Function Calling + MCP + RAG)
+# https://github.com/QwenLM/Qwen-Agent
+qwen-agent[mcp]>=0.0.10
+
+# DashScope / OpenAI-compatible client for Qwen on Alibaba Cloud Model Studio
+openai>=1.30
+
+# Alibaba Cloud Object Storage Service
+oss2>=2.18
+
+# Supabase (book/user data + agent run-state)
+supabase>=2.4
