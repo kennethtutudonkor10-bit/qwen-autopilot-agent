@@ -6,10 +6,17 @@ of any agent-framework import so the orchestrator stays lightweight.
 """
 from __future__ import annotations
 
+import os
 from typing import Any
 
-from . import pipeline, store
+from . import db, pipeline, store
 from .aliyun import oss
+
+_FILE_TYPES = {".pdf": "PDF", ".docx": "DOCX", ".epub": "EPUB"}
+
+
+def _file_type(uri: str | None) -> str:
+    return _FILE_TYPES.get(os.path.splitext(uri or "")[1].lower(), "PDF")
 
 
 def do_ingest(run_id: str) -> dict[str, Any]:
@@ -38,8 +45,24 @@ def do_quality(run_id: str, extracted: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def do_publish(run_id: str, listing: dict[str, Any]) -> dict[str, Any]:
-    # TODO(day5): insert into Supabase `books` (status='approved') + publish file to public bucket.
+    """Insert the approved listing into GHAMAZON's books table (status='approved')."""
+    run = store.get_run(run_id)
     book_id = ""
+    if db.is_configured():
+        price = float(listing.get("suggested_price_ghs") or 0)
+        row = {
+            "title": listing.get("title") or "Untitled",
+            "author_id": run.get("author_id"),
+            "description": listing.get("synopsis") or listing.get("back_cover") or "",
+            "price_ghs": price,
+            "language": listing.get("language") or "English",
+            "category": listing.get("category") or "General",
+            "file_url": run.get("manuscript_uri"),  # OSS object key
+            "file_type": _file_type(run.get("manuscript_uri")),
+            "status": "approved",
+            "is_free": price == 0,
+        }
+        book_id = db.client().table("books").insert(row).execute().data[0]["id"]
     store.update_run(run_id, status=store.PUBLISH, step=store.PUBLISH, book_id=book_id)
     store.append_trace(run_id, store.PUBLISH, {"book_id": book_id})
     return {"book_id": book_id, "listing": listing}

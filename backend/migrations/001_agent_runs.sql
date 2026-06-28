@@ -3,6 +3,7 @@
 
 create table if not exists agent_runs (
   id              uuid primary key default gen_random_uuid(),
+  author_id       uuid,                              -- references users(id)
   book_id         uuid,                              -- references books(id) once published
   status          text not null default 'intake',   -- pipeline state machine
   step            text not null default 'intake',

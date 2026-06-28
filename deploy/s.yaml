@@ -33,6 +33,9 @@ resources:
         OSS_BUCKET: ghamazon-manuscripts
         SUPABASE_URL: ${env.SUPABASE_URL}
         SUPABASE_SERVICE_ROLE_KEY: ${env.SUPABASE_SERVICE_ROLE_KEY}
+        RESEND_API_KEY: ${env.RESEND_API_KEY}
+        RESEND_FROM: GHAMAZON <noreply@ghamazon.com>
+        APP_URL: https://ghamazon.pages.dev
       triggers:
         - triggerName: http
           triggerType: http

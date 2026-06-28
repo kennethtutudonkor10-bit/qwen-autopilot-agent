@@ -16,6 +16,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
+from . import db
 from .config import get_settings
 
 # Pipeline states — see docs/architecture.md
@@ -32,15 +33,14 @@ _MEM: dict[str, dict[str, Any]] = {}
 
 
 def _use_supabase() -> bool:
+    # Read settings directly (not db.is_configured) so the run-store's backend
+    # choice is independent of the books/notifications client — important for tests.
     s = get_settings()
     return bool(s.supabase_url and s.supabase_service_role_key)
 
 
 def _supabase():
-    from supabase import create_client  # imported lazily so in-memory mode needs no dep
-
-    s = get_settings()
-    return create_client(s.supabase_url, s.supabase_service_role_key)
+    return db.client()
 
 
 def _now() -> str:

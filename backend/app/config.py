@@ -33,7 +33,12 @@ class Settings(BaseSettings):
     supabase_url: str = ""
     supabase_service_role_key: str = ""
 
+    # ── Email (Resend) — author notifications ────────────────────────────────
+    resend_api_key: str = ""
+    resend_from: str = "GHAMAZON <noreply@ghamazon.com>"
+
     # ── App ──────────────────────────────────────────────────────────────────
+    app_url: str = "https://ghamazon.pages.dev"
     cors_origins: str = "http://localhost:5173,https://ghamazon.pages.dev"
 
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from app import orchestrator, pipeline, store
+from app import db, orchestrator, pipeline, store
 from app.aliyun import oss
 
 LISTING = {"title": "The Harmattan Letters", "category": "Fiction", "suggested_price_ghs": 25}
@@ -75,3 +75,38 @@ def test_resume_with_unknown_decision_raises():
     orchestrator.start(run_id)
     with pytest.raises(ValueError):
         orchestrator.resume(run_id, "maybe")
+
+
+def test_publish_inserts_book_row(monkeypatch):
+    """When Supabase is configured, approving the listing inserts an approved book."""
+    captured: dict = {}
+
+    class FakeTable:
+        def __init__(self, name):
+            captured["table"] = name
+
+        def insert(self, row):
+            captured["row"] = row
+            return self
+
+        def select(self, *_):
+            return self
+
+        def eq(self, *_):
+            return self
+
+        def execute(self):
+            return type("R", (), {"data": [{"id": "book-123", "email": "a@b.com"}]})()
+
+    monkeypatch.setattr(db, "is_configured", lambda: True)
+    monkeypatch.setattr(db, "client", lambda: type("C", (), {"table": lambda self, n: FakeTable(n)})())
+
+    run_id = _new_run()
+    orchestrator.start(run_id)
+    run = orchestrator.resume(run_id, "approve")  # approve listing -> publish
+
+    assert captured["table"] == "books"
+    assert captured["row"]["status"] == "approved"
+    assert captured["row"]["author_id"] == "author-1"
+    assert run["book_id"] == "book-123"
+    assert run["pending_action"]["checkpoint"] == orchestrator.CK_APPROVE_NOTIFICATION

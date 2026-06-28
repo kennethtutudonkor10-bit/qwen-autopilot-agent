@@ -14,8 +14,7 @@ delegates the language work to Qwen via the registered skills / pipeline.
 """
 from __future__ import annotations
 
-from . import pipeline, steps, store
-from .config import get_settings
+from . import notify, pipeline, steps, store
 
 # Human-in-the-loop checkpoint identifiers
 CK_REVIEW_LISTING = "review_listing"
@@ -80,16 +79,11 @@ def _resume_after_listing(run_id: str, run: dict, approved_listing: dict | None)
 def _resume_after_notification(run_id: str, run: dict) -> dict:
     """HITL #2 approved: send the author notification and finish."""
     email = (run.get("pending_action") or {}).get("email") or {}
-    _send_author_notification(run, email)
-    store.append_trace(run_id, store.NOTIFY, {"subject": email.get("subject"), "sent": True})
+    sent = notify.send_author_notification(
+        run.get("author_id"),
+        email.get("subject", "Your book is live on GHAMAZON"),
+        email.get("body", ""),
+        book_id=run.get("book_id"),
+    )
+    store.append_trace(run_id, store.NOTIFY, {"subject": email.get("subject"), **sent})
     return store.update_run(run_id, status=store.DONE, step=store.DONE, pending_action=None)
-
-
-def _send_author_notification(run: dict, email: dict) -> None:
-    """Send via the email MCP server + GHAMAZON notification.
-
-    TODO(day5): wire the MCP email server (app/mcp_config.json) and insert an
-    in-app notification row. For now the approved email is recorded in the trace.
-    """
-    _ = get_settings()  # placeholder for SMTP/MCP config lookup
-    return None
