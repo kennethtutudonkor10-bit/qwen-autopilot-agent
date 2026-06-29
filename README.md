@@ -25,13 +25,17 @@ digital + print book marketplace.
 - **Supabase** (Postgres) for book/user data and durable agent run-state
 - **React + Tailwind** admin dashboard (lives in the GHAMAZON app)
 
-## Repo layout
+## Documentation
 
-See [`PLAN.md`](PLAN.md) and [`docs/architecture.md`](docs/architecture.md).
+- [`PLAN.md`](PLAN.md) — build plan, timeline, decisions
+- [`docs/architecture.md`](docs/architecture.md) — system design + resumable HITL state machine
+- [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — Alibaba Cloud deployment runbook
+- [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md) — ≤3-min demo video script
+- [`docs/JUDGING.md`](docs/JUDGING.md) — judging criteria → where it's met
 
 ```
 backend/   FastAPI + Qwen-Agent orchestrator, skills, Alibaba Cloud integration
-docs/      architecture + demo script
+docs/      architecture, deployment, demo, judging
 deploy/    Serverless Devs config for Function Compute
 ```
 
