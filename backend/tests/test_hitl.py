@@ -18,8 +18,7 @@ LISTING = {"title": "The Harmattan Letters", "category": "Fiction", "suggested_p
 @pytest.fixture(autouse=True)
 def stub_qwen_and_oss(monkeypatch):
     monkeypatch.setattr(oss, "get_bytes", lambda key: b"manuscript text")
-    monkeypatch.setattr(pipeline, "extract_text", lambda data, name: "manuscript text")
-    monkeypatch.setattr(pipeline, "ingest", lambda text: {"excerpt": "x", "language": "English"})
+    monkeypatch.setattr(pipeline, "ingest_auto", lambda data, name: {"excerpt": "x", "language": "English"})
     monkeypatch.setattr(pipeline, "draft_listing", lambda extracted: dict(LISTING))
     monkeypatch.setattr(pipeline, "quality_checks", lambda listing, excerpt: [])
     monkeypatch.setattr(

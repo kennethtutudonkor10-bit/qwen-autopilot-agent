@@ -28,8 +28,8 @@ def main() -> int:
         data = f.read()
 
     print(f"\n=== Ingesting {path} ===")
-    text = pipeline.extract_text(data, path)
-    extracted = pipeline.ingest(text)
+    extracted = pipeline.ingest_auto(data, path)  # text, or Qwen-VL for scanned PDFs
+    print(f"(source: {extracted.get('source')})")
     print(json.dumps(extracted, indent=2, ensure_ascii=False))
 
     print("\n=== Draft listing ===")

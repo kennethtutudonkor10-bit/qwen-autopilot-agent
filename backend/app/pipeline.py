@@ -6,13 +6,16 @@ skills (skills/manuscript.py) wrap these with run-state and OSS IO.
 """
 from __future__ import annotations
 
+import base64
 import io
 from typing import Any
 
 from . import qwen
 from .config import get_settings
 
-EXCERPT_CHARS = 6000  # how much manuscript text we feed the model
+EXCERPT_CHARS = 6000   # how much manuscript text we feed the model
+MIN_TEXT_CHARS = 200   # below this, a PDF is treated as scanned -> use vision
+VISION_MAX_PAGES = 4   # pages rendered for the VL model
 
 
 # ── text extraction ──────────────────────────────────────────────────────────
@@ -29,6 +32,19 @@ def extract_text(data: bytes, filename: str) -> str:
 
 
 # ── step 1: ingest ───────────────────────────────────────────────────────────
+def is_scanned(text: str) -> bool:
+    """A PDF that yields almost no extractable text is image-based (scanned)."""
+    return len(text.strip()) < MIN_TEXT_CHARS
+
+
+def ingest_auto(data: bytes, filename: str) -> dict[str, Any]:
+    """Entry point: extract text, falling back to Qwen-VL for scanned PDFs."""
+    text = extract_text(data, filename)
+    if filename.lower().endswith(".pdf") and is_scanned(text):
+        return ingest_from_images(data, filename)
+    return ingest(text)
+
+
 def ingest(text: str) -> dict[str, Any]:
     """Detect basic structure from raw manuscript text."""
     s = get_settings()
@@ -47,6 +63,45 @@ def ingest(text: str) -> dict[str, Any]:
     result = qwen.complete_json(s.model_reason, system, user)
     result["char_count"] = len(text)
     result["excerpt"] = excerpt
+    result["source"] = "text"
+    return result
+
+
+def _render_pdf_images(data: bytes, max_pages: int = VISION_MAX_PAGES) -> list[str]:
+    """Render the first pages of a PDF to PNG data: URLs (via PyMuPDF, no native binaries)."""
+    import fitz  # PyMuPDF
+
+    urls: list[str] = []
+    with fitz.open(stream=data, filetype="pdf") as doc:
+        for i, page in enumerate(doc):
+            if i >= max_pages:
+                break
+            png = page.get_pixmap(matrix=fitz.Matrix(2.0, 2.0)).tobytes("png")
+            urls.append("data:image/png;base64," + base64.b64encode(png).decode())
+    return urls
+
+
+def ingest_from_images(data: bytes, filename: str) -> dict[str, Any]:
+    """Read a scanned/image manuscript with Qwen-VL."""
+    s = get_settings()
+    urls = _render_pdf_images(data)
+    if not urls:
+        return {"detected_title": None, "language": None, "excerpt": "",
+                "char_count": 0, "source": "vision", "note": "no renderable pages"}
+    system = (
+        "You are a publishing analyst reading scanned manuscript pages. "
+        "Return JSON only; never invent content you cannot see."
+    )
+    user = (
+        "From these manuscript page images, return JSON with keys: "
+        "detected_title (string|null), language, genre (string|null), "
+        "themes (string[]), tone (string), one_line_premise (string), "
+        "transcribed_excerpt (the readable text from the pages)."
+    )
+    result = qwen.complete_json_vision(s.model_vision, system, user, urls)
+    result["excerpt"] = result.get("transcribed_excerpt", "") or ""
+    result["char_count"] = len(result["excerpt"])
+    result["source"] = "vision"
     return result
 
 

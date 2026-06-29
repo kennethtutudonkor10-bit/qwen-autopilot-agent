@@ -22,8 +22,7 @@ def _file_type(uri: str | None) -> str:
 def do_ingest(run_id: str) -> dict[str, Any]:
     run = store.get_run(run_id)
     data = oss.get_bytes(run["manuscript_uri"])
-    text = pipeline.extract_text(data, run["manuscript_uri"])
-    extracted = pipeline.ingest(text)
+    extracted = pipeline.ingest_auto(data, run["manuscript_uri"])
     store.update_run(run_id, status=store.DRAFT, step=store.DRAFT)
     store.append_trace(run_id, store.INTAKE, extracted)
     return extracted
