@@ -22,6 +22,9 @@ Two options — both put the backend on Alibaba Cloud (the deployment proof):
 
 > Voucher tip: in the console billing settings, **disable the Free Tier/Quota
 > toggle** so your hackathon voucher/credits are applied instead of free quota.
+> You do **not** need the voucher to build, verify, or demo — the free 1M tokens
+> on signup are plenty. Disable free quota only when you want the voucher/credits
+> consumed. If the toggle is missing, email the organizers your **UID**.
 
 ---
 
