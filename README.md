@@ -19,7 +19,7 @@ digital + print book marketplace.
 ## Tech
 
 - **Qwen-Agent** framework (Function Calling + MCP) — https://github.com/QwenLM/Qwen-Agent
-- **Qwen models via DashScope** (Alibaba Cloud Model Studio): `qwen-plus`, `qwen3-coder-plus`, `qwen-vl-plus`
+- **Qwen models via DashScope** (Alibaba Cloud Model Studio): `qwen3.7-max` (reasoning), `qwen3.7-plus` (structured + vision)
 - **FastAPI** backend, deployed on **Alibaba Cloud Function Compute**
 - **Alibaba Cloud OSS** for manuscript + cover files
 - **Supabase** (Postgres) for book/user data and durable agent run-state

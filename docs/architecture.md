@@ -17,9 +17,9 @@
 │  │ Orchestrator                                                   ││
 │  │  Qwen-Agent `Assistant` running a ReAct loop                   ││
 │  │  Models via DashScope (Alibaba Cloud Model Studio):            ││
-│  │   • qwen-plus         — reasoning / planning                   ││
-│  │   • qwen3-coder-plus  — structured listing JSON                ││
-│  │   • qwen-vl-plus      — read manuscript pages / covers         ││
+│  │   • qwen3.7-max       — reasoning / planning                   ││
+│  │   • qwen3.7-plus      — structured listing JSON                ││
+│  │   • qwen3.7-plus      — read manuscript pages (Text + Vision)  ││
 │  │                                                                ││
 │  │  Pipeline state machine:                                       ││
 │  │   INTAKE → DRAFT → QUALITY → [await HITL] → PUBLISH            ││

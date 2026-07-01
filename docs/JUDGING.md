@@ -6,8 +6,7 @@ A reviewer's map from the Track 4 rubric to concrete things in this repo.
 *"sophisticated use of QwenCloud APIs, custom skills, MCP integrations, algorithmic/engineering innovation"*
 
 - **Multi-model Qwen usage** via Model Studio / DashScope (`backend/app/config.py`):
-  `qwen-plus` (reasoning), `qwen3-coder-plus` (strict-JSON listings),
-  `qwen-vl-plus` (scanned-manuscript vision).
+  `qwen3.7-max` (reasoning), `qwen3.7-plus` (strict-JSON listings + scanned-manuscript vision).
 - **Custom Qwen-Agent skills** as `BaseTool`s — `backend/app/skills/manuscript.py`.
 - **MCP integration** config for the email tool — `backend/app/mcp_config.json`.
 - **Strict-JSON + lenient-JSON parsing** and retries — `backend/app/qwen.py`.

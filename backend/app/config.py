@@ -18,10 +18,10 @@ class Settings(BaseSettings):
     dashscope_api_key: str = ""
     dashscope_base_url: str = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
 
-    # Model routing — one job per model.
-    model_reason: str = "qwen-plus"          # planning / reasoning
-    model_structured: str = "qwen3-coder-plus"  # strict JSON listing output
-    model_vision: str = "qwen-vl-plus"       # read manuscript pages / covers
+    # Model routing — one job per model. IDs from the Qwen Cloud hackathon catalog.
+    model_reason: str = "qwen3.7-max"        # complex reasoning: ingest analysis, quality judgment
+    model_structured: str = "qwen3.7-plus"   # balanced: structured JSON listing output
+    model_vision: str = "qwen3.7-plus"       # Text + Vision: scanned manuscript pages
 
     # ── Alibaba Cloud OSS (manuscripts + generated covers) ───────────────────
     oss_access_key_id: str = ""

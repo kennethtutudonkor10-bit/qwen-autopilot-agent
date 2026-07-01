@@ -47,7 +47,7 @@ email worker. The agent *feeds* those rather than rebuilding them.
 
 | Criterion (weight) | How we hit it |
 |---|---|
-| **Technical Depth & Engineering (30%)** | Built on **Qwen-Agent** with custom `BaseTool` skills + **MCP** servers. Multi-model routing: `qwen-plus` reasoning, `qwen3-coder-plus` structured output, `Qwen-VL` for attachments. DashScope (Alibaba Cloud) API throughout. |
+| **Technical Depth & Engineering (30%)** | Built on **Qwen-Agent** with custom `BaseTool` skills + **MCP** servers. Multi-model routing: `qwen3.7-max` reasoning, `qwen3.7-plus` structured output + vision for scanned manuscripts. DashScope (Alibaba Cloud) API throughout. |
 | **Innovation & AI Creativity (30%)** | Typed pipeline state machine, ReAct planning loop, **resumable human-in-the-loop** (agent persists state and resumes on approval), retries + guardrails, modular skill registry. |
 | **Problem Value & Impact (25%)** | Automates the slowest part of running a real marketplace; reusable for any intake→review→publish workflow. Live product, not a toy. |
 | **Presentation & Documentation (15%)** | Admin dashboard *visualizes the agent's reasoning and each checkpoint* (judges want "key logic visualized") + architecture diagram + this plan. |
@@ -73,7 +73,7 @@ React admin dashboard (GHAMAZON, Cloudflare Pages)
         ▼
 FastAPI Agent API  ── deployed on Alibaba Cloud Function Compute ──
         │
-   Qwen-Agent Assistant (ReAct loop)  ── DashScope: qwen-plus / qwen3-coder-plus / qwen-vl
+   Qwen-Agent Assistant (ReAct loop)  ── DashScope: qwen3.7-max / qwen3.7-plus (vision)
         │
    Custom skills (BaseTool)            MCP clients
    • ingest_manuscript (Qwen-VL)       • github (optional)
