@@ -1,10 +1,27 @@
 # Deployment Runbook — Alibaba Cloud
 
 End-to-end steps to take the Qwen Autopilot Agent from this repo to a live
-backend on Alibaba Cloud Function Compute, wired to GHAMAZON. Budget ~45–60 min.
+backend on Alibaba Cloud, wired to GHAMAZON.
 
-Prerequisites: an Alibaba Cloud account (with the hackathon cloud credits applied),
-the existing GHAMAZON Supabase project, and `npm`/`docker` locally.
+Prerequisites: an Alibaba Cloud account (with the hackathon cloud credits applied)
+and the existing GHAMAZON Supabase project.
+
+## Which deployment path?
+
+Two options — both put the backend on Alibaba Cloud (the deployment proof):
+
+- **A. VM — ECS or Simple Application Server (SWAS)** ← *recommended, simplest.*
+  Just `git clone` + `uvicorn` on a small Ubuntu VM. No Docker, no registry.
+  This is what the Alibaba team's session demoed. See **§5A**.
+- **B. Function Compute (serverless container)** — build a Docker image, push to
+  ACR, `s deploy`. More moving parts. See **§5B**.
+
+> Note: the Alibaba team stated Qwen Cloud model usage is **mandatory** and
+> Alibaba Cloud deployment is **strongly encouraged**. Do the VM deploy — it's
+> cheap and quick — so the "proof of deployment" box is unambiguously ticked.
+
+> Voucher tip: in the console billing settings, **disable the Free Tier/Quota
+> toggle** so your hackathon voucher/credits are applied instead of free quota.
 
 ---
 
@@ -43,7 +60,50 @@ Apply `backend/migrations/001_agent_runs.sql` to the GHAMAZON Supabase project
 (SQL editor or `supabase db push`). This creates the `agent_runs` table + the
 admin-read RLS policy the dashboard uses.
 
-## 4. Build & push the container image
+## 5A. Deploy on a VM — ECS or Simple Application Server (recommended)
+
+No Docker, no registry — just clone and run `uvicorn`. This is the fastest way
+to get a public URL on Alibaba Cloud.
+
+1. Create a **Simple Application Server** (or a small **ECS** instance), image
+   **Ubuntu 22.04**, in your region (Singapore for the `-intl` endpoint).
+2. In the instance's **firewall / security group**, open your app port (`8000`).
+3. SSH in and set it up:
+   ```bash
+   sudo apt update && sudo apt install -y python3-pip git
+   git clone https://github.com/kennethtutudonkor10-bit/qwen-autopilot-agent.git
+   cd qwen-autopilot-agent/backend
+   pip3 install -r requirements.txt
+   cp .env.example .env && nano .env      # fill DASHSCOPE_API_KEY, OSS_*, SUPABASE_*
+   python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000   # quick test
+   ```
+4. Visit `http://<server-ip>:8000/` — you should see the **Agent Console**;
+   `http://<server-ip>:8000/healthz` returns `{"status":"ok"}`. **That URL is your
+   proof of deployment** (screenshot it + the SWAS/ECS console).
+5. Make it a durable service with systemd — `/etc/systemd/system/qwen-agent.service`:
+   ```ini
+   [Unit]
+   Description=Qwen Autopilot Agent
+   After=network.target
+   [Service]
+   WorkingDirectory=/root/qwen-autopilot-agent/backend
+   EnvironmentFile=/root/qwen-autopilot-agent/backend/.env
+   ExecStart=/usr/bin/python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+   Restart=always
+   [Install]
+   WantedBy=multi-user.target
+   ```
+   ```bash
+   sudo systemctl enable --now qwen-agent && sudo systemctl status qwen-agent
+   ```
+
+Then skip to **§6** to point GHAMAZON at `http://<server-ip>:8000`.
+
+---
+
+## 5B. Alternative: Function Compute (serverless container)
+
+### Build & push the container image
 
 Function Compute runs a custom container. Push to Alibaba Container Registry (ACR):
 
@@ -62,7 +122,7 @@ docker push \
 
 Update the `image:` line in `deploy/s.yaml` to match this tag.
 
-## 5. Deploy to Function Compute
+### Deploy to Function Compute
 
 ```bash
 npm i -g @serverless-devs/s
