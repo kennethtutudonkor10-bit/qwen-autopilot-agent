@@ -8,11 +8,15 @@ Endpoints:
 """
 from __future__ import annotations
 
+import os
 import uuid
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
+
+STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 
 from . import orchestrator, store
 from .aliyun import oss
@@ -26,6 +30,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/")
+def console() -> FileResponse:
+    """Serve the standalone, no-login Agent Console (demo surface)."""
+    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 
 
 @app.get("/healthz")
