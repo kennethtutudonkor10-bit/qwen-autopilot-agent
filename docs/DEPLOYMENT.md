@@ -77,9 +77,13 @@ to get a public URL on Alibaba Cloud.
    git clone https://github.com/kennethtutudonkor10-bit/qwen-autopilot-agent.git
    cd qwen-autopilot-agent/backend
    pip3 install -r requirements.txt
-   cp .env.example .env && nano .env      # fill DASHSCOPE_API_KEY, OSS_*, SUPABASE_*
+   export DASHSCOPE_API_KEY=sk-your-key      # the ONLY required secret for a demo
    python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000   # quick test
    ```
+   > Minimum viable deploy needs **only** `DASHSCOPE_API_KEY` — the console runs
+   > the full ingest → draft → quality → approve flow with an in-process store.
+   > Add `OSS_*` + `SUPABASE_*` (via a `.env` file) for durable storage and to
+   > write published books into GHAMAZON.
 4. Visit `http://<server-ip>:8000/` — you should see the **Agent Console**;
    `http://<server-ip>:8000/healthz` returns `{"status":"ok"}`. **That URL is your
    proof of deployment** (screenshot it + the SWAS/ECS console).
