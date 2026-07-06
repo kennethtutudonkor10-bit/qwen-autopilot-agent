@@ -62,6 +62,29 @@ def do_publish(run_id: str, listing: dict[str, Any]) -> dict[str, Any]:
             "is_free": price == 0,
         }
         book_id = db.client().table("books").insert(row).execute().data[0]["id"]
+        cover = _attach_cover(book_id, listing)
+        store.append_trace(run_id, "cover", {"cover_url": cover or "skipped"})
     store.update_run(run_id, status=store.PUBLISH, step=store.PUBLISH, book_id=book_id)
     store.append_trace(run_id, store.PUBLISH, {"book_id": book_id})
     return {"book_id": book_id, "listing": listing}
+
+
+def _attach_cover(book_id: str, listing: dict[str, Any]) -> str | None:
+    """Generate a cover with Qwen, upload it to the book-covers bucket, set cover_url.
+
+    Entirely best-effort — any failure leaves the book cover-less and the run intact.
+    """
+    try:
+        img = pipeline.generate_cover(listing)
+        if not img:
+            return None
+        path = f"covers/{book_id}.png"
+        sb = db.client()
+        sb.storage.from_("book-covers").upload(
+            path, img, {"content-type": "image/png", "upsert": "true"}
+        )
+        url = sb.storage.from_("book-covers").get_public_url(path)
+        sb.table("books").update({"cover_url": url}).eq("id", book_id).execute()
+        return url
+    except Exception:  # noqa: BLE001 — cover art must never break publishing
+        return None

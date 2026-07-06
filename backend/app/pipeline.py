@@ -145,6 +145,29 @@ def quality_checks(listing: dict[str, Any], excerpt: str) -> list[dict[str, Any]
     return result.get("flags", [])
 
 
+# ── cover art: generate a book cover with Qwen's image model ─────────────────
+def generate_cover(listing: dict[str, Any]) -> bytes | None:
+    """Generate cover art from the listing; returns PNG/JPEG bytes or None (fail-soft)."""
+    title = listing.get("title") or "Untitled"
+    genre = listing.get("category") or "book"
+    themes = ", ".join((listing.get("keywords") or [])[:4])
+    prompt = (
+        f"Professional book cover artwork for a {genre} book titled \"{title}\". "
+        f"Evocative of: {themes}. Elegant, high-quality, cinematic lighting, "
+        f"rich colours, suitable as a store thumbnail. No text, no words, no lettering."
+    )
+    url = qwen.generate_image(prompt)
+    if not url:
+        return None
+    try:
+        import httpx
+
+        r = httpx.get(url, timeout=30)
+        return r.content if r.status_code < 300 else None
+    except Exception:  # noqa: BLE001 — best-effort
+        return None
+
+
 # ── step 5: draft the author notification (for the 2nd human checkpoint) ──────
 def draft_author_email(listing: dict[str, Any]) -> dict[str, str]:
     """Draft the 'your book is live' email an admin approves before it's sent."""

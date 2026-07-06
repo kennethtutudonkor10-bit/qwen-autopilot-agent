@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     model_reason: str = "qwen3.7-max"        # complex reasoning: ingest analysis, quality judgment
     model_structured: str = "qwen3.7-plus"   # balanced: structured JSON listing output
     model_vision: str = "qwen3.7-plus"       # Text + Vision: scanned manuscript pages
+    model_image: str = "wan2.6-t2i"          # text-to-image: auto-generated book covers
 
     # ── Alibaba Cloud OSS (manuscripts + generated covers) ───────────────────
     oss_access_key_id: str = ""

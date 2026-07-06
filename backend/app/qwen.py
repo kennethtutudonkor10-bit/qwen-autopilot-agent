@@ -94,6 +94,20 @@ def complete_json_vision(
     return _parse_json_lenient(resp.choices[0].message.content or "")
 
 
+def generate_image(prompt: str, *, size: str = "1024x1024") -> str | None:
+    """Generate an image with Qwen's text-to-image model; returns a URL or None.
+
+    Uses the OpenAI-compatible images endpoint. Fails soft (returns None) so a
+    cover-generation problem never breaks a publish.
+    """
+    s = get_settings()
+    try:
+        resp = get_client().images.generate(model=s.model_image, prompt=prompt, size=size, n=1)
+        return resp.data[0].url
+    except Exception:  # noqa: BLE001 — cover art is best-effort
+        return None
+
+
 def complete_text(model: str, system: str, user: str, *, temperature: float = 0.3) -> str:
     client = get_client()
     resp = client.chat.completions.create(
