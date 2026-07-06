@@ -1,5 +1,7 @@
 # Architecture — Qwen Autopilot Agent
 
+![Architecture diagram](architecture.png)
+
 ## System overview
 
 ```

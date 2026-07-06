@@ -10,6 +10,8 @@ for a human to approve or edit** before anything is published or sent to the aut
 It is the publishing brain behind [GHAMAZON](https://ghamazon.pages.dev), Ghana's
 digital + print book marketplace.
 
+![Architecture](docs/architecture.png)
+
 ## Why it fits Track 4
 
 - **Ambiguous tasks** — raw manuscripts with no structured metadata.
