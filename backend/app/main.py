@@ -89,6 +89,7 @@ def get_run(run_id: str) -> dict:
 class ResumeBody(BaseModel):
     decision: str  # 'approve' | 'reject'
     approved_listing: dict | None = None
+    approved_email: dict | None = None
 
 
 @app.post("/runs/{run_id}/resume")
@@ -99,6 +100,6 @@ def resume_run(run_id: str, body: ResumeBody) -> dict:
     if run["status"] != store.AWAITING_APPROVAL:
         raise HTTPException(409, "run is not awaiting approval")
     try:
-        return orchestrator.resume(run_id, body.decision, body.approved_listing)
+        return orchestrator.resume(run_id, body.decision, body.approved_listing, body.approved_email)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {e}")

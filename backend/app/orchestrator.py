@@ -40,8 +40,17 @@ def start(run_id: str) -> dict:
     )
 
 
-def resume(run_id: str, decision: str, approved_listing: dict | None = None) -> dict:
-    """Continue a run after a human checkpoint. decision: 'approve' | 'reject'."""
+def resume(
+    run_id: str,
+    decision: str,
+    approved_listing: dict | None = None,
+    approved_email: dict | None = None,
+) -> dict:
+    """Continue a run after a human checkpoint. decision: 'approve' | 'reject'.
+
+    The human may edit the listing (checkpoint 1) or the author email (checkpoint 2)
+    before approving; the edited version is what's used.
+    """
     run = store.get_run(run_id)
     if run is None:
         raise ValueError(f"run {run_id} not found")
@@ -57,7 +66,7 @@ def resume(run_id: str, decision: str, approved_listing: dict | None = None) -> 
     if checkpoint == CK_REVIEW_LISTING:
         return _resume_after_listing(run_id, run, approved_listing)
     if checkpoint == CK_APPROVE_NOTIFICATION:
-        return _resume_after_notification(run_id, run)
+        return _resume_after_notification(run_id, run, approved_email)
     raise ValueError(f"cannot resume from checkpoint: {checkpoint}")
 
 
@@ -76,9 +85,9 @@ def _resume_after_listing(run_id: str, run: dict, approved_listing: dict | None)
     )
 
 
-def _resume_after_notification(run_id: str, run: dict) -> dict:
-    """HITL #2 approved: send the author notification and finish."""
-    email = (run.get("pending_action") or {}).get("email") or {}
+def _resume_after_notification(run_id: str, run: dict, approved_email: dict | None = None) -> dict:
+    """HITL #2 approved: send the (possibly human-edited) author notification and finish."""
+    email = approved_email or (run.get("pending_action") or {}).get("email") or {}
     sent = notify.send_author_notification(
         run.get("author_id"),
         email.get("subject", "Your book is live on GHAMAZON"),

@@ -44,7 +44,8 @@
   .steps li b { color:var(--gold); font-family:ui-monospace,Menlo,monospace; width:88px; flex:none; }
   .steps li span { color:#475569; word-break:break-word; }
   .ck { margin-top:18px; background:#fff8e9; border:1px solid #f3e2b8; border-radius:14px; padding:16px 18px; }
-  .ck h3 { margin:0 0 12px; font-size:14px; color:var(--navy); }
+  .ck h3 { margin:0 0 6px; font-size:14px; color:var(--navy); }
+  .ck-hint { margin:0 0 12px; font-size:12px; color:#92400e; font-weight:600; }
   .flag { font-size:12px; border-radius:8px; padding:7px 10px; margin-bottom:6px; }
   .f-block{background:#fee2e2;color:#b91c1c}.f-warn{background:#fef3c7;color:#92400e}.f-info{background:#e0edff;color:#1d4ed8}
   .fields { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
@@ -214,7 +215,8 @@ function renderDetail(r){
 function listingCk(r){
   const L = r.pending_action.listing||{};
   const flags = (r.pending_action.flags||[]).map(f=>`<div class="flag f-${f.severity||'info'}"><b>${esc(f.code)}</b> — ${esc(f.note||'')}</div>`).join('');
-  return `<div class="ck"><h3>① Review the AI-drafted listing</h3>${flags}
+  return `<div class="ck"><h3>① Review the AI-drafted listing</h3>
+    <p class="ck-hint">✏️ Edit any field before approving — your changes are what gets published.</p>${flags}
     <div class="fields">
       <div><label>Title</label><input id="f-title" value="${esc(L.title||'')}"></div>
       <div><label>Category</label><input id="f-cat" value="${esc(L.category||'')}"></div>
@@ -231,9 +233,13 @@ function listingCk(r){
 function emailCk(r){
   const e = r.pending_action.email||{};
   return `<div class="ck"><h3>② Approve the author notification</h3>
-    <div class="email"><b>${esc(e.subject||'')}</b><p style="margin:8px 0 0;white-space:pre-wrap">${esc(e.body||'')}</p></div>
+    <p class="ck-hint">✏️ Edit the email before sending — your version is what the author receives.</p>
+    <div class="fields">
+      <div class="full"><label>Subject</label><input id="e-subject" value="${esc(e.subject||'')}"></div>
+      <div class="full"><label>Message</label><textarea id="e-body" rows="5">${esc(e.body||'')}</textarea></div>
+    </div>
     <div class="actions">
-      <button class="btn btn-green" onclick="resume('${r.id}','approve')">Send & finish</button>
+      <button class="btn btn-green" onclick="approveEmail('${r.id}')">Send & finish</button>
       <button class="btn btn-ghost" onclick="resume('${r.id}','reject')">Reject</button>
     </div></div>`;
 }
@@ -244,11 +250,15 @@ function approveListing(id){
   resume(id,'approve',L);
 }
 
+function approveEmail(id){
+  resume(id,'approve',null,{ subject:val('e-subject'), body:val('e-body') });
+}
+
 async function detail(r){ try { return (await r.json()).detail || ('HTTP '+r.status); } catch { return 'HTTP '+r.status; } }
 
-async function resume(id, decision, listing){
+async function resume(id, decision, listing, email){
   const r = await fetch(API+'/runs/'+id+'/resume', { method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ decision, approved_listing: listing||null }) });
+    body: JSON.stringify({ decision, approved_listing: listing||null, approved_email: email||null }) });
   if(!r.ok){ alert('Action failed: ' + await detail(r)); }
   await selectRun(id);
 }
