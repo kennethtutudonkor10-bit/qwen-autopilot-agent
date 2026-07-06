@@ -165,9 +165,12 @@ function approveListing(id){
   resume(id,'approve',L);
 }
 
+async function detail(r){ try { return (await r.json()).detail || ('HTTP '+r.status); } catch { return 'HTTP '+r.status; } }
+
 async function resume(id, decision, listing){
-  await fetch(API+'/runs/'+id+'/resume', { method:'POST', headers:{'Content-Type':'application/json'},
+  const r = await fetch(API+'/runs/'+id+'/resume', { method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({ decision, approved_listing: listing||null }) });
+  if(!r.ok){ alert('Action failed: ' + await detail(r)); }
   await selectRun(id);
 }
 
@@ -177,7 +180,11 @@ document.getElementById('run').onclick = async ()=>{
   const btn = document.getElementById('run'); btn.disabled=true; btn.textContent='Starting…';
   const fd = new FormData(); fd.append('file', f);
   fd.append('author_id', document.getElementById('author').value || '00000000-0000-0000-0000-000000000000');
-  try { const r = await fetch(API+'/runs', { method:'POST', body:fd }); const run = await r.json(); await selectRun(run.id); }
+  try {
+    const r = await fetch(API+'/runs', { method:'POST', body:fd });
+    if(!r.ok){ alert('Run failed: ' + await detail(r)); return; }
+    const run = await r.json(); await selectRun(run.id);
+  }
   catch(e){ alert('Failed to start run: '+e); }
   finally { btn.disabled=false; btn.textContent='Run autopilot'; }
 };

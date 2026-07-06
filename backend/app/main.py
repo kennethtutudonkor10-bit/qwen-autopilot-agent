@@ -47,9 +47,12 @@ def healthz() -> dict:
 async def start_run(file: UploadFile = File(...), author_id: str = Form(...)) -> dict:
     data = await file.read()
     key = f"manuscripts/{author_id}/{uuid.uuid4()}-{file.filename}"
-    oss.upload_bytes(key, data, content_type=file.content_type)
-    run = store.create_run(author_id=author_id, manuscript_uri=key)
-    return orchestrator.start(run["id"])
+    try:
+        oss.upload_bytes(key, data, content_type=file.content_type)
+        run = store.create_run(author_id=author_id, manuscript_uri=key)
+        return orchestrator.start(run["id"])
+    except Exception as e:  # surface the real cause to the UI instead of a bare 500
+        raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {e}")
 
 
 @app.get("/runs")
@@ -77,4 +80,7 @@ def resume_run(run_id: str, body: ResumeBody) -> dict:
         raise HTTPException(404, "run not found")
     if run["status"] != store.AWAITING_APPROVAL:
         raise HTTPException(409, "run is not awaiting approval")
-    return orchestrator.resume(run_id, body.decision, body.approved_listing)
+    try:
+        return orchestrator.resume(run_id, body.decision, body.approved_listing)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {e}")
