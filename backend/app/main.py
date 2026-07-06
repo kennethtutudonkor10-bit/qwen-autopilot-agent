@@ -11,7 +11,7 @@ from __future__ import annotations
 import os
 import uuid
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -43,16 +43,34 @@ def healthz() -> dict:
     return {"status": "ok", "service": "qwen-autopilot-agent"}
 
 
+def _run_pipeline(run_id: str) -> None:
+    """Run intake -> draft -> quality in the background so the console can animate
+    each step as it completes. Errors are recorded on the run for the UI to show."""
+    try:
+        orchestrator.start(run_id)
+    except Exception as e:  # noqa: BLE001 — record on the run instead of crashing
+        trace = list((store.get_run(run_id) or {}).get("trace") or [])
+        trace.append({"step": "error", "detail": f"{type(e).__name__}: {e}"})
+        store.update_run(run_id, status="error", trace=trace)
+
+
 @app.post("/runs")
-async def start_run(file: UploadFile = File(...), author_id: str = Form(...)) -> dict:
+async def start_run(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    author_id: str = Form(...),
+) -> dict:
     data = await file.read()
     key = f"manuscripts/{author_id}/{uuid.uuid4()}-{file.filename}"
     try:
         oss.upload_bytes(key, data, content_type=file.content_type)
         run = store.create_run(author_id=author_id, manuscript_uri=key)
-        return orchestrator.start(run["id"])
-    except Exception as e:  # surface the real cause to the UI instead of a bare 500
+    except Exception as e:  # upload/create failures still surface immediately
         raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {e}")
+    # Kick off the pipeline in the background; return the run at 'intake' right away
+    # so the UI can poll and animate the steps as they complete.
+    background_tasks.add_task(_run_pipeline, run["id"])
+    return run
 
 
 @app.get("/runs")

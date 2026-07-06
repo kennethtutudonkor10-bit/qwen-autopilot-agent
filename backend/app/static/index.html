@@ -57,6 +57,42 @@
   .btn-green{ background:#16a34a; color:#fff; } .btn-green:hover{ background:#15803d; }
   .btn-ghost{ background:#fff; color:#b91c1c; border:1px solid #fecaca; }
   .src { font-size:11px; color:var(--mut); }
+
+  /* ── animated pipeline timeline ── */
+  .pipe { margin:6px 0 4px; }
+  .pstage { position:relative; display:flex; gap:14px; padding:0 0 20px; }
+  .pstage:last-child { padding-bottom:2px; }
+  .pstage .node { position:relative; z-index:1; width:26px; height:26px; border-radius:50%;
+    border:2px solid var(--line); background:#fff; display:flex; align-items:center; justify-content:center;
+    flex:none; transition:.35s ease; }
+  .pstage .node .core { width:9px; height:9px; border-radius:50%; background:#d7dce5; transition:.35s ease; }
+  .pstage:not(:last-child)::before { content:''; position:absolute; left:12px; top:26px; bottom:0; width:2px; background:var(--line); transition:.5s ease; }
+  .pstage .lbl b { display:block; font-size:13.5px; color:var(--mut); font-weight:700; transition:.25s; }
+  .pstage .lbl span { font-size:11.5px; color:#9aa4b2; }
+  /* completed */
+  .pstage.done .node { border-color:var(--navy); background:var(--navy); }
+  .pstage.done .node .core { display:none; }
+  .pstage.done .node::after { content:'✓'; color:#fff; font-size:14px; font-weight:900; line-height:1; }
+  .pstage.done::before { background:var(--navy); }
+  .pstage.done .lbl b { color:var(--navy); }
+  /* active — processing (gold) */
+  .pstage.active .node { border-color:var(--gold); animation:ringG 1.5s infinite; }
+  .pstage.active .node .core { background:var(--gold); animation:blink 1s infinite; }
+  .pstage.active .lbl b { color:var(--navy); }
+  .pstage.active .lbl span::after { content:' • working…'; color:var(--gold2); font-weight:700; }
+  @keyframes ringG {0%{box-shadow:0 0 0 0 rgba(184,134,11,.45)}70%{box-shadow:0 0 0 11px rgba(184,134,11,0)}100%{box-shadow:0 0 0 0 rgba(184,134,11,0)}}
+  @keyframes blink {0%,100%{opacity:1}50%{opacity:.25}}
+  /* active — awaiting human (amber) */
+  .pstage.wait .node { border-color:#d97706; animation:ringA 1.5s infinite; }
+  .pstage.wait .node .core { background:#d97706; }
+  .pstage.wait .lbl b { color:#92400e; }
+  .pstage.wait .lbl span { color:#b45309; font-weight:700; }
+  @keyframes ringA {0%{box-shadow:0 0 0 0 rgba(217,119,6,.5)}70%{box-shadow:0 0 0 11px rgba(217,119,6,0)}100%{box-shadow:0 0 0 0 rgba(217,119,6,0)}}
+  /* stopped */
+  .pstage.err .node { border-color:#dc2626; background:#dc2626; }
+  .pstage.err .node .core { display:none; }
+  .pstage.err .node::after { content:'✕'; color:#fff; font-size:13px; font-weight:900; }
+  .pstage.err .lbl b { color:#b91c1c; }
 </style>
 </head>
 <body>
@@ -96,7 +132,7 @@ let selected = null;
 
 const PILL = { intake:['Ingesting','p-run'], draft:['Drafting','p-run'], quality:['Quality check','p-run'],
   awaiting_approval:['Needs review','p-wait'], publish:['Publishing','p-run'], notify:['Notifying','p-run'],
-  done:['Published','p-done'], rejected:['Rejected','p-rej'] };
+  done:['Published','p-done'], rejected:['Rejected','p-rej'], error:['Error','p-rej'] };
 
 async function health(){
   try { const r = await fetch(API+'/healthz'); const j = await r.json(); document.getElementById('health').textContent = j.status==='ok' ? 'Live' : 'Degraded'; }
@@ -120,14 +156,57 @@ async function refresh(){
 
 async function selectRun(id){ selected=id; const r = await (await fetch(API+'/runs/'+id)).json(); renderDetail(r); refresh(); }
 
+// ── animated pipeline timeline ──
+const STAGES = [
+  ['Ingest manuscript',   'Reading & parsing · Qwen 3.7 Max',        false],
+  ['Draft store listing',  'Title, synopsis, price · Qwen 3.7 Plus',  false],
+  ['Quality screening',    'Appropriateness & flags',                 false],
+  ['Human review',         'Checkpoint 1 — approve the listing',       true],
+  ['Publish to GHAMAZON',  'Write the book to the live catalog',      false],
+  ['Notify author',        'Checkpoint 2 — approve the email',         true],
+  ['Published',            'Live on the marketplace',                 false],
+];
+
+function stagePos(r){
+  const s=r.status, ck=r.pending_action&&r.pending_action.checkpoint;
+  if(s==='rejected'||s==='error') return { i:reached(r), stopped:true };
+  if(s==='done')  return { i:7 };
+  if(s==='intake')return { i:0 };
+  if(s==='draft') return { i:1 };
+  if(s==='quality')return { i:2 };
+  if(s==='awaiting_approval' && ck==='review_listing')      return { i:3, wait:true };
+  if(s==='publish')return { i:4 };
+  if(s==='awaiting_approval' && ck==='approve_notification')return { i:5, wait:true };
+  if(s==='notify')return { i:5 };
+  return { i:0 };
+}
+function reached(r){
+  if(r.book_id) return 5;
+  if(r.quality_flags!=null) return 3;
+  if(r.draft_listing!=null) return 2;
+  if(r.trace && r.trace.length) return 1;
+  return 0;
+}
+function renderPipeline(r){
+  const p = stagePos(r);
+  const rows = STAGES.map((s,idx)=>{
+    let cls='';
+    if(idx < p.i) cls='done';
+    else if(idx === p.i) cls = p.stopped ? 'err' : ((p.wait && s[2]) ? 'wait' : 'active');
+    return `<div class="pstage ${cls}"><div class="node"><div class="core"></div></div>
+      <div class="lbl"><b>${s[0]}</b><span>${s[1]}</span></div></div>`;
+  }).join('');
+  return `<div class="pipe">${rows}</div>`;
+}
+
 function renderDetail(r){
   const trace = (r.trace||[]).map(t=>`<li><b>${esc(t.step)}</b><span>${esc(typeof t.detail==='object'?JSON.stringify(t.detail):String(t.detail))}</span></li>`).join('') || '<li><span class="src">No steps yet…</span></li>';
   let ck='';
   if(r.status==='awaiting_approval' && r.pending_action){ ck = r.pending_action.checkpoint==='approve_notification' ? emailCk(r) : listingCk(r); }
   document.getElementById('detail').innerHTML = `<div class="detail">
-    <div class="src">source: ${esc((r.trace&&r.trace[0]&&r.trace[0].detail&&r.trace[0].detail.source)||'—')} · step: ${esc(r.step)}</div>
+    ${renderPipeline(r)}
     ${ck}
-    <div class="ph" style="border:0;padding:16px 0 0">Agent trace</div>
+    <div class="ph" style="border:0;padding:18px 0 0">Agent trace</div>
     <ul class="steps">${trace}</ul>
   </div>`;
 }
@@ -192,7 +271,10 @@ document.getElementById('run').onclick = async ()=>{
 function val(id){ return document.getElementById(id).value; }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
-health(); refresh(); setInterval(refresh, 3500); setInterval(health, 15000);
+// Poll faster while a run is mid-flight so the timeline animates smoothly.
+health(); refresh();
+setInterval(refresh, 1200);
+setInterval(health, 15000);
 </script>
 </body>
 </html>
