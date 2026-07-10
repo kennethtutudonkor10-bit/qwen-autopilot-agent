@@ -97,7 +97,8 @@ def do_promote(run_id: str, listing: dict[str, Any], book_id: str | None) -> dic
         }
         import httpx
 
-        httpx.post(s.promo_webhook_url, json=payload, timeout=20)
+        headers = {"X-Promo-Secret": s.promo_shared_secret} if s.promo_shared_secret else {}
+        httpx.post(s.promo_webhook_url, json=payload, headers=headers, timeout=20)
         store.append_trace(run_id, "promote", {"youtube_title": ad.get("youtube_title"), "sent": True})
         return ad
     except Exception:  # noqa: BLE001 — advertising is best-effort

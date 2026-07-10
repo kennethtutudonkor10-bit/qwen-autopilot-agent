@@ -39,7 +39,8 @@ class Settings(BaseSettings):
     resend_from: str = "GHAMAZON <noreply@ghamazon.com>"
 
     # ── Promotion — hand the generated ad to a YouTube/TikTok posting bot ─────
-    promo_webhook_url: str = ""   # your bot's endpoint; empty = promotion step skipped
+    promo_webhook_url: str = ""      # your bot's endpoint; empty = promotion step skipped
+    promo_shared_secret: str = ""    # sent as X-Promo-Secret; the bot rejects mismatches
 
     # ── App ──────────────────────────────────────────────────────────────────
     app_url: str = "https://ghamazon.pages.dev"
