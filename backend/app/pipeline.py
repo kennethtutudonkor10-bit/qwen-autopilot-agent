@@ -168,6 +168,26 @@ def generate_cover(listing: dict[str, Any]) -> bytes | None:
         return None
 
 
+# ── promotion: generate a social-media ad for a published book ───────────────
+def generate_ad(listing: dict[str, Any]) -> dict[str, Any]:
+    """Write a YouTube/TikTok promo for the book (hook, script, title, tags)."""
+    s = get_settings()
+    system = (
+        "You are a sharp social-media marketer for GHAMAZON, a Ghanaian book "
+        "marketplace. Write scroll-stopping promos. Return JSON only."
+    )
+    user = (
+        "Create a short promo to advertise this book on YouTube/TikTok. Return JSON with keys: "
+        "hook (a punchy one-line attention grabber), "
+        "script (a 25-40 word voiceover script for a short vertical video), "
+        "youtube_title (<= 70 characters, catchy), "
+        "description (2-3 sentences ending with a call to action to buy on GHAMAZON), "
+        "hashtags (array of 5-8 relevant hashtags, no spaces, include #Ghana and the genre).\n\n"
+        f"BOOK LISTING:\n{listing}"
+    )
+    return qwen.complete_json(s.model_reason, system, user)
+
+
 # ── step 5: draft the author notification (for the 2nd human checkpoint) ──────
 def draft_author_email(listing: dict[str, Any]) -> dict[str, str]:
     """Draft the 'your book is live' email an admin approves before it's sent."""

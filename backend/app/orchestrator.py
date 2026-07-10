@@ -95,4 +95,6 @@ def _resume_after_notification(run_id: str, run: dict, approved_email: dict | No
         book_id=run.get("book_id"),
     )
     store.append_trace(run_id, store.NOTIFY, {"subject": email.get("subject"), **sent})
+    # Auto-advertise: generate an ad with Qwen and hand it to the posting bot (best-effort).
+    steps.do_promote(run_id, run.get("draft_listing") or {}, run.get("book_id"))
     return store.update_run(run_id, status=store.DONE, step=store.DONE, pending_action=None)

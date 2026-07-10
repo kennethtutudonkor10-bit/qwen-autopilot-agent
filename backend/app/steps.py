@@ -11,6 +11,7 @@ from typing import Any
 
 from . import db, pipeline, store
 from .aliyun import oss
+from .config import get_settings
 
 _FILE_TYPES = {".pdf": "PDF", ".docx": "DOCX", ".epub": "EPUB"}
 
@@ -67,6 +68,41 @@ def do_publish(run_id: str, listing: dict[str, Any]) -> dict[str, Any]:
     store.update_run(run_id, status=store.PUBLISH, step=store.PUBLISH, book_id=book_id)
     store.append_trace(run_id, store.PUBLISH, {"book_id": book_id})
     return {"book_id": book_id, "listing": listing}
+
+
+def do_promote(run_id: str, listing: dict[str, Any], book_id: str | None) -> dict | None:
+    """Generate a social-media ad with Qwen and hand it to the posting bot.
+
+    Fully best-effort: skipped if no PROMO_WEBHOOK_URL is set, and any failure
+    (generation or POST) is swallowed so it never affects the published book.
+    """
+    s = get_settings()
+    if not s.promo_webhook_url:
+        return None
+    try:
+        ad = pipeline.generate_ad(listing)
+        cover_url = None
+        if book_id and db.is_configured():
+            try:
+                res = db.client().table("books").select("cover_url").eq("id", book_id).execute()
+                cover_url = (res.data or [{}])[0].get("cover_url")
+            except Exception:  # noqa: BLE001
+                pass
+        payload = {
+            "book_id": book_id,
+            "title": listing.get("title"),
+            "buy_url": f"{s.app_url}/book/{book_id}" if book_id else s.app_url,
+            "cover_url": cover_url,
+            "ad": ad,  # hook, script, youtube_title, description, hashtags
+        }
+        import httpx
+
+        httpx.post(s.promo_webhook_url, json=payload, timeout=20)
+        store.append_trace(run_id, "promote", {"youtube_title": ad.get("youtube_title"), "sent": True})
+        return ad
+    except Exception:  # noqa: BLE001 — advertising is best-effort
+        store.append_trace(run_id, "promote", {"sent": False})
+        return None
 
 
 def _attach_cover(book_id: str, listing: dict[str, Any]) -> str | None:

@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     resend_api_key: str = ""
     resend_from: str = "GHAMAZON <noreply@ghamazon.com>"
 
+    # ── Promotion — hand the generated ad to a YouTube/TikTok posting bot ─────
+    promo_webhook_url: str = ""   # your bot's endpoint; empty = promotion step skipped
+
     # ── App ──────────────────────────────────────────────────────────────────
     app_url: str = "https://ghamazon.pages.dev"
     cors_origins: str = "http://localhost:5173,https://ghamazon.pages.dev"
